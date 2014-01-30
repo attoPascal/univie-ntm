@@ -1,0 +1,58 @@
+if callfunc == 'initialize':
+  if len(callargs) == 4:
+    serverhost = callargs[0]
+    serverportnum = int(callargs[1])
+    p = float(callargs[2])/100
+    x = int(callargs[3])
+  else:
+    raise Exception("Wrong number of arguments")
+  
+  print "Client started"
+  print "Sending messages to", serverhost + ":" + str(serverportnum)
+  print "Losing", p*100, "percent of packages"
+  print "Sending XOR packet after", x, "packets"
+  
+  # read input file
+  inputfile = open("input.txt", 'r')
+  message = inputfile.read()
+  inputfile.close()
+  
+  # open tcp connection to server
+  socket = openconn(serverhost, serverportnum)
+  
+  # send length of message
+  length = len(message)
+  socket.send(str(length))
+  socket.recv(1)
+
+  # send x
+  socket.send(str(x))
+  socket.recv(1)
+
+  # one character, one packet
+  for seq in range(length):
+    # send only p % of packets
+    if randomfloat() > p:
+      socket.send(str(seq) + ";" + message[seq])
+      socket.recv(1)
+
+    # build xor packet
+    if seq % x == 0:
+      xor = ord(message[seq])
+    else:
+      xor ^= ord(message[seq])
+
+    # send xor packet
+    if (seq % x == x-1) and (randomfloat() > p):
+      socket.send(str(-1*seq) + ";" + chr(xor))
+      socket.recv(1)
+
+  # last empty packet
+  socket.send(str(length) + "; ")
+  socket.recv(1)
+  print "Message sent"
+
+  socket.close()
+  print "Connection closed"
+  
+  exitall()

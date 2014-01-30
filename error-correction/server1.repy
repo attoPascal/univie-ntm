@@ -1,0 +1,44 @@
+def hello(ip, port, sockobj, thiscommhandle, listencommhandle):
+  # get message length
+  length = int(sockobj.recv(8))
+  sockobj.send("k")
+
+  i = 0
+  message = ""
+
+  # get packets
+  while i < length:
+    packet = sockobj.recv(8)
+    seq, c = packet.split(';')
+    seq = int(seq)
+
+    # for lost packets
+    while i < seq:
+      i += 1
+      message += "_"
+    
+    i += 1
+    message += c
+    sockobj.send("k")
+
+  print message
+
+  sockobj.close()
+
+if callfunc == 'initialize':
+  if len(callargs) > 1:
+    raise Exception("Too many call arguments")
+
+  # Running remotely:
+  # whenever this vessel gets a connection on its IPaddress:Clearinghouseport it'll call hello
+  elif len(callargs) == 1:
+    port = int(callargs[0])
+    ip = getmyip()
+
+  # Running locally:
+  # whenever we get a connection on 127.0.0.1:12345 we'll call hello
+  else:
+    port = 12345
+    ip = '127.0.0.1'
+
+  listencommhandle = waitforconn(ip,port,hello)

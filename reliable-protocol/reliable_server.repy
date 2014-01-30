@@ -1,0 +1,44 @@
+include reliable.repy
+
+# after timeout: write data to file, exit
+def timeout():
+  print "Timeout."
+  
+  # write to outfile, mode overwrite
+  outfile = open(mycontext['outfile'], 'w')
+  outfile.write(mycontext['message'])
+  outfile.close();
+  
+  #print "Data recieved:"
+  #print mycontext['message']
+  
+  print mycontext['packetsrecieved'], "packets recieved"
+  
+  print "Will exit now"
+  exitall()
+
+
+if callfunc == 'initialize':
+  if len(callargs) == 2:
+    mycontext['outfile'] = callargs[0]
+    mycontext['portnum'] = int(callargs[1])
+    mycontext['timeout'] = 10
+  elif len(callargs) == 3:
+    mycontext['outfile'] = callargs[0]
+    mycontext['portnum'] = int(callargs[1])
+    mycontext['timeout'] = int(callargs[2])
+  else:
+    raise Exception("Wrong number of arguments")
+  
+  # start recieving
+  reliable_recvmess(getmyip(), mycontext['portnum'], ())
+  
+  # set timer
+  mycontext['timer'] = settimer(mycontext['timeout'], timeout, ())
+  
+  print "Reliable server started"
+  print "Listening on", getmyip(), ":", mycontext['portnum']
+  print "Writing data to", mycontext['outfile']
+  print "Timeout after", mycontext['timeout'], "seconds"
+  
+  

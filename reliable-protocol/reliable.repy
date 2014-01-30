@@ -1,0 +1,108 @@
+mycontext['maxdgramsize'] = 5
+mycontext['retries'] = 4
+mycontext['timeoutinms'] = 10
+mycontext['DELIM'] = ", "
+mycontext['header'] = 0
+mycontext['message'] = ""
+mycontext['acked'] = False
+mycontext['stoplock'] = getlock()
+mycontext['packetssent'] = 0
+mycontext['packetsrecieved'] = 0
+mycontext['retransmissions'] = 0
+
+def reliable_recvmess(srcip, srcport, function):
+  return recvmess(srcip, srcport, packet_recieved)
+
+def reliable_sendmess(destip, destport, message, srcip=None, srcport=None):
+  # divide message into packets < maxdgramsize
+  bytes = len(message)
+  dgrams = bytes / mycontext['maxdgramsize']
+  if (bytes % mycontext['maxdgramsize']) > 0:
+    dgrams += 1
+  
+  bytes_sent = 0
+  
+  # start listening for acks
+  recvmess(mycontext['srchost'], mycontext['srcportnum'], check_ack)
+  
+  while bytes_sent < bytes:
+    retries = 0
+    slice = message[bytes_sent:bytes_sent+mycontext['maxdgramsize']]
+    
+    # without retransmission
+    if mycontext['retries'] == 0:
+      sendmess(destip, destport, str(mycontext['header']) + mycontext['DELIM'] + slice, srcip, srcport)
+      mycontext['packetssent'] += 1
+      sleep(mycontext['timeoutinms'] / float(1000))
+    
+    # with retransmission
+    else: 
+      while not mycontext['acked']:
+        sendmess(destip, destport, str(mycontext['header']) + mycontext['DELIM'] + slice, srcip, srcport)
+        mycontext['packetssent'] += 1
+        sleep(mycontext['timeoutinms'] / float(1000))
+      
+        if mycontext['acked']:
+          print "ack recieved"
+          mycontext['acked'] = False
+          break
+        else:
+          retries += 1
+          if retries > mycontext['retries']:
+            raise Exception("No nore retries")
+          mycontext['retransmissions'] += 1
+          print "nak recieved. retry", retries
+      
+      
+    bytes_sent += mycontext['maxdgramsize']
+  
+  return bytes
+
+def reliable_config(maxdgramsize, retries, timeoutinms):
+  mycontext['maxdgramsize'] = maxdgramsize
+  mycontext['retries'] = retries
+  mycontext['timeoutinms'] = timeoutinms
+
+def packet_recieved(srcip, srcport, message, ch):
+  # get lock
+  mycontext['stoplock'].acquire()
+  
+  # stop previous timer
+  canceltimer(mycontext['timer'])
+  
+  mycontext['packetsrecieved'] += 1
+  
+  # read header and payload
+  header = int(message[0:1])
+  payload = message[1+len(mycontext['DELIM']):]
+  print header, payload
+  
+  # if header is as expected: use payload, send ack
+  if header == mycontext['header']:
+    mycontext['message'] += payload
+    
+    # ack
+    sendmess(srcip, srcport, str(mycontext['header']), None, None)
+    print "sent ack", mycontext['header']
+    switch_header()
+  
+  #else: ignore packet, send nak
+  else:
+    sendmess(srcip, srcport, str(mycontext['header']), None, None)
+    print "sent ack", mycontext['header']
+  
+  #set new timer
+  mycontext['timer'] = settimer(mycontext['timeout'], timeout, ())
+  
+  #release lock
+  mycontext['stoplock'].release()
+  
+def check_ack(serverhost, serverport, ack, ch):
+  if int(ack) == mycontext['header']:
+    mycontext['acked'] = True
+    switch_header()
+  else:
+    pass
+
+def switch_header():
+  mycontext['header'] = (mycontext['header'] + 1) % 2

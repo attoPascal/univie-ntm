@@ -1,0 +1,61 @@
+include reliable.repy
+
+if callfunc == 'initialize':
+  if len(callargs) == 3:
+    mycontext['inputfile'] = callargs[0]
+    mycontext['serverhost'] = callargs[1]
+    mycontext['serverportnum'] = int(callargs[2])
+    mycontext['srchost'] = None
+    mycontext['srcportnum'] = None
+    
+  elif len(callargs) == 5:
+    mycontext['inputfile'] = callargs[0]
+    mycontext['serverhost'] = callargs[1]
+    mycontext['serverportnum'] = int(callargs[2])
+    mycontext['srchost'] = callargs[3]
+    mycontext['srcportnum'] = int(callargs[4])
+    
+  elif len(callargs) == 8:
+    mycontext['inputfile'] = callargs[0]
+    mycontext['serverhost'] = callargs[1]
+    mycontext['serverportnum'] = int(callargs[2])
+    mycontext['srchost'] = callargs[3]
+    mycontext['srcportnum'] = int(callargs[4])
+    
+    maxdgramsize = int(callargs[5])
+    retries = int(callargs[6])
+    timeoutinms = int(callargs[7])
+    reliable_config(maxdgramsize, retries, timeoutinms)
+    
+  else:
+    raise Exception("Wrong number of arguments")
+  
+  print "Reliable client started"
+  print "Sending messages to", mycontext['serverhost'], ":", mycontext['serverportnum']
+  print "Listening for ACKs on", mycontext['srchost'], ":", mycontext['srcportnum']
+  print "maxdgramsize:", mycontext['maxdgramsize']
+  print "retries:", mycontext['retries']
+  print "timeoutinms:", mycontext['timeoutinms']
+  
+  # read input file
+  inputfile = open(mycontext['inputfile'], 'r')
+  message = inputfile.read()
+  inputfile.close()
+  
+  time_before_transmission = getruntime()
+  
+  # send message to server
+  bytes_transmitted = reliable_sendmess(mycontext['serverhost'], mycontext['serverportnum'], message, mycontext['srchost'], mycontext['srcportnum'])
+  
+  time_after_transmission = getruntime()
+  transmission_time = time_after_transmission-time_before_transmission
+  throughput = float(bytes_transmitted) / transmission_time
+ 
+  print mycontext['packetssent'], "packets sent"
+  print mycontext['retransmissions'], "retransmissions"
+  print throughput, "B/s throughput"
+  
+  
+  exitall()
+  
+  
